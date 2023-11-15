@@ -38,3 +38,5 @@ xarray~=2023.10.1
 geemap~=0.29.5
 statsmodels~=0.14.0
 geopy~=2.4.0
+pymc3~=3.11.5
+arviz~=0.12.1

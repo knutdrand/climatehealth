@@ -5,6 +5,7 @@ from datetime import date
 class SpatialLocation:
     pass
 
+
 class TimePoint:
     @classmethod
     def accepts_string(cls, text):
@@ -15,7 +16,6 @@ class TimePoint:
             return False
 
 # data['2022-01-01':'2023-01-01', point].total_precipitation_sum
-
 class SpatioTemporalIndexable(typing.Protocol):
     def _get_temporal_item(self, item: TimePoint):
         return NotImplemented

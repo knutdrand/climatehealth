@@ -18,6 +18,16 @@ class EEWrapper(SpatioTemporalIndexable):
 
     def _get_spatial_item(self, item):
         # if isinstance(item, ee.Geometry.Point):
+        if isinstance(item, list):
+            #use image.RedcueRegions instead
+            # FeatureCollection from a list of features.
+            # list_of_features = [
+            #     ee.Feature(ee.Geometry.Point(-62.54, -27.32), {'key': 'val1'}),
+            #     ee.Feature(ee.Geometry.Point(-69.18, -10.64), {'key': 'val2'}),
+            #     ee.Feature(ee.Geometry.Point(-45.98, -18.09), {'key': 'val3'})
+            # ]
+            #list_of_features_fc = ee.FeatureCollection(list_of_features)
+            pass
         value = self._ee_object.map(lambda image: ee.Feature(None, image.reduceRegion(ee.Reducer.mean(), item, 1)))
         return self._wrap(value)
 
@@ -25,6 +35,7 @@ class EEWrapper(SpatioTemporalIndexable):
         return self.__class__(value, name=self._name)
 
     def __getattr__(self, name):
+        # Also get two names
         return self.__class__(self._ee_object.select(name), name=name)
 
     def __repr__(self):
@@ -35,4 +46,5 @@ class EEWrapper(SpatioTemporalIndexable):
 
     def compute(self):
         assert self._name is not None
-        return np.array([f['properties'][self._name] for f in self._ee_object.getInfo()['features']])
+        features = self._ee_object.getInfo()['features']
+        return np.array([f['properties'][self._name] for f in features])

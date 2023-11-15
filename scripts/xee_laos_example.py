@@ -13,10 +13,12 @@ ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
 point = ee.Geometry.Point(102.250915, 19.227447)
 
 # Daily precipitation for one year in meters (multiply with 1000 to get mm)
-ic = ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR') #.filterDate('2022-01-01', '2023-01-01').select('total_precipitation_sum')
+
+ic = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR') #.filterDate('2022-01-01', '2023-01-01').select('total_precipitation_sum')
 
 data = EEWrapper(ic)
-result = data.total_precipitation_sum['2022-01-01':'2023-01-01', point]
+
+result = data.total_precipitation_sum['2013-01-01':'2023-12-01', point]
 print(result.compute())
 # print(result.getInfo())
 

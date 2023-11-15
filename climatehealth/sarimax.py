@@ -9,7 +9,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 # Replace 'your_dataset.csv' with the actual file path or URL of your dataset
 
 
-def analyze_data(df):
+def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     # Plot the time series data
@@ -30,7 +30,7 @@ def analyze_data(df):
     seasonal_order = (1, 1, 1, 12)  # (P, D, Q, S)
 
     # Exogenous variables
-    exog_variables = df[['Rainfall', 'Temperature']]
+    exog_variables = df[exog_names]
     # Split the data into training and testing sets
     train_size = int(len(df) * 0.8)
     train, test = df.iloc[:train_size], df.iloc[train_size:]
