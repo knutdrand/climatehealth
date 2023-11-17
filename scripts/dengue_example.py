@@ -5,9 +5,8 @@ import pandas as pd
 import numpy as np
 
 from climatehealth.ee_wrapper import EEWrapper
-from climatehealth.geo_coding import get_location
 from climatehealth.health_and_climate_dataset import extract_same_range_from_climate_data
-from climatehealth.sarimax import analyze_data
+from climatehealth.modelling.sarimax import analyze_data
 
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']

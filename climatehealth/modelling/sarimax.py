@@ -10,23 +10,24 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 
 
 def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
+    df['DengueCases'] = np.log(df['DengueCases']+1)
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     # Plot the time series data
-    df['DengueCases'].plot(figsize=(12, 6), title='Monthly Dengue Cases')
-    plt.show()
+    #df['DengueCases'].plot(figsize=(12, 6), title='Monthly Dengue Cases')
+    #plt.show()
     # Decompose the time series to analyze trend, seasonality, and residuals
     result = seasonal_decompose(df['DengueCases'], model='additive')
-    result.plot()
-    plt.show()
+    #result.plot()
+    # plt.show()
     # Check autocorrelation and partial autocorrelation to determine SARIMA parameters
-    plot_acf(df['DengueCases'], lags=36)
-    plt.show()
-    plot_pacf(df['DengueCases'], lags=36)
-    plt.show()
+    # plot_acf(df['DengueCases'], lags=36)
+    # plt.show()
+    # plot_pacf(df['DengueCases'], lags=36)
+    # plt.show()
     # Choose SARIMA parameters based on the ACF and PACF plots
     # Replace the values below with your chosen parameters
-    order = (1, 1, 1)  # (p, d, q)
+    order = (1, 0, 0)  # (p, d, q)
     seasonal_order = (1, 1, 1, 12)  # (P, D, Q, S)
 
     # Exogenous variables
@@ -61,9 +62,10 @@ def evaluate_model(exog_test, results, test, train):
     predicted_mean = predictions.predicted_mean
     # Plot the actual vs. predicted values
     plt.figure(figsize=(12, 6))
-    plt.plot(train.index, train['DengueCases'], label='Train')
-    plt.plot(test.index, test['DengueCases'], label='Test')
-    plt.plot(test.index, predicted_mean, label='SARIMAX Forecast', color='red')
+    f = lambda x: np.exp(x)-1
+    plt.plot(train.index, f(train['DengueCases']), label='Train')
+    plt.plot(test.index, f(test['DengueCases']), label='Test')
+    plt.plot(test.index, f(predicted_mean), label='SARIMAX Forecast', color='red')
     plt.title('SARIMAX Forecast for Monthly Dengue Cases with Exogenous Variables')
     plt.legend()
     plt.show()

@@ -1,5 +1,4 @@
-from climatehealth.sarimax import analyze_data
-from climatehealth.pymc_model import new_pymc_sarima
+from climatehealth.modelling.pymc_model import new_pymc_sarima
 from .datasets import *
 
 @pytest.mark.parametrize('model_func', [new_pymc_sarima])#, analyze_data])
