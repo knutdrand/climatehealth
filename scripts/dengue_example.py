@@ -6,8 +6,8 @@ import numpy as np
 
 from climatehealth.ee_wrapper import EEWrapper
 from climatehealth.health_and_climate_dataset import extract_same_range_from_climate_data
-from climatehealth.modelling.sarimax import analyze_data
-
+# from climatehealth.modelling.sarimax import analyze_data
+from climatehealth.modelling.particles_wrapper import analyze_data
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']
 
@@ -69,7 +69,7 @@ def main():
     d = range_data.total_precipitation_sum
     d2 = range_data.temperature_2m
     d3 = range_data.temperature_2m_max
-    for name, point in list(point_dict.items())[1:]:
+    for name, point in list(point_dict.items())[1:2]:
         if point is None:
             continue
         ee_point = ee.Geometry.Point(point.longitude, point.latitude)
@@ -82,6 +82,7 @@ def main():
                                        'Temperature': temperature})
         # data['precipitation'] = values
         print(name)
+        new_data_frame.to_csv(f'{name}.csv')
         analyze_data(new_data_frame, exog_names=['Rainfall'])
 
 
