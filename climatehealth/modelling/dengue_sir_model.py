@@ -4,7 +4,8 @@ import numpy as np
 import scipy.special
 from matplotlib import pyplot as plt
 from particles import state_space_models as ssm, mcmc, distributions as dists
-from .compartementalized_model import SIRState, SIRModel, make_ssm_class, check_capasity, StateDistribution
+from .compartementalized_model import SIRState, SIRModel, make_ssm_class, check_capasity, StateDistribution, \
+    check_model_capasity
 
 
 def make_ssm_class(weather_data, N=100000):
@@ -32,16 +33,20 @@ def make_ssm_class(weather_data, N=100000):
 
     return DengueSIRModel
 
+
 def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     cls = make_ssm_class(df['Rainfall'].to_numpy(), N=100000)
-    px.line(df, x='Date', y='DengueCases').show()
+    #px.line(df, x='Date', y='DengueCases').show()
     y = df['DengueCases'].to_numpy()
     priors = {'gamma': dists.Beta(0.5, 10), 'beta': dists.Normal(0.5, 10), 'beta_0': dists.Normal(0, 10),
               's0': dists.Beta(1, 1), 'i0': dists.Beta(1, 1)}
+
+    check_model_capasity(cls, cls(**{name: dist.rvs() for name, dist in priors.items()}), priors, T=len(y))
+    return
     prior = dists.StructDist(OrderedDict(priors))
     my_pmmh = mcmc.PMMH(ssm_cls=cls,
                         prior=prior, data=y, Nx=600,
-                        niter=1000)
+                        niter=10000)
     print('Estimating parameters')
     my_pmmh.run()  # may take several se
     # theta = my_pmmh.chain.theta['theta'][-1]

@@ -1,5 +1,7 @@
 import dataclasses
 from collections import OrderedDict
+import arviz as az
+import matplotlib.pyplot as plt
 import plotly.express as px
 import numpy as np
 import scipy.stats
@@ -50,7 +52,7 @@ class SIRModel:
             *(getattr(self.state, field.name) + getattr(self, f"d{field.name}")() for field in
               dataclasses.fields(self.state)))
 
-    def rvs(self, size=1):
+    def rvs(self, size=None):
         beta = self.beta.rvs(size)
         return dataclasses.replace(self, beta=beta).next_state()
 
@@ -68,7 +70,7 @@ def get_state_distribution(state_class: type):
         def logpdf(self, state: state_class):
             return self._dist.logpdf(np.array([getattr(field.name) for field in dataclasses.fields(state)]))
 
-        def rvs(self, size):
+        def rvs(self, size=None):
             rvs = self._dist.rvs(size)
             return state_class(*rvs.T)
 
@@ -123,18 +125,42 @@ def check_capasity(statemodel, N):
 
 
 def check_model_capasity(cls, my_model, priors,  T=24):
-    x, y = my_model.simulate(T)
-
+    xs, y = my_model.simulate(T)
+    plt.plot([x.I*100000 for x in xs], '.')
+    plt.plot(y, '-')
+    plt.show()
+    # px.plot(y).show()
+    # px.line(x.I).show()
     prior = dists.StructDist(OrderedDict(priors))
+    niter = 1000
     my_pmmh = mcmc.PMMH(ssm_cls=cls,
                         prior=prior, data=y, Nx=500,
-                        niter=1000)
-    my_pmmh.run();  # may take several se
+                        niter=niter)
+    my_pmmh.run();  # may take several seconds
     for name in my_model.default_params:
-        # px.line(np.log(my_pmmh.chain.theta[name][100:]), title=name).show()
-        px.histogram(my_pmmh.chain.theta[name][100:], title=name).show()
+        plt.plot(my_pmmh.chain.theta[name][niter//3:], '-')
+        plt.title(name)
+        plt.hlines(getattr(my_model, name), 0, niter-niter//3)
+        plt.show()
+        # px.histogram(my_pmmh.chain.theta[name][3000:], title=name).show()
+    series = []
+    for i in range(niter//3, niter):
+        new_model = cls(**{name: my_pmmh.chain.theta[name][i] for name in my_model.default_params})
+        time_series = new_model.simulate(T)[1]
+        series.append(time_series)
+    posterior_samples = np.array(series).reshape(len(series), -1)
+    lines = np.quantile(posterior_samples, [0.25, 0.5, 0.75], axis=0)
+    plt.plot(lines[1], '-')
+    plt.fill_between(np.arange(T), lines[0], lines[2], alpha=0.5)
+    plt.plot(y, '-')
+    plt.show()
+    #data = az.convert_to_inference_data(posterior_samples)
+    # az.plot_posterior(data, kind="timeseries", figsize=(10, 6))
+    # plt.show()
 
-    new_model = cls(**{name: my_pmmh.chain.theta[name][-1] for name in my_model.default_params})
     x, new_y = new_model.simulate(T)
-    px.line(new_y).show()
+    plt.plot(new_y, '-')
+    plt.plot(y, '-')
+    plt.show()
+    # px.line(new_y).show()
 
