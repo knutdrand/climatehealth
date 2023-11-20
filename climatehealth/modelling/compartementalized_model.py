@@ -31,16 +31,17 @@ class SIRModel:
     state: SIRState
     beta: float = 0.1
     gamma: float = 0.05
+    epsilon: float = 0.00
     dim=1
 
     def dS(self):
-        return -self.beta * self.state.S * self.state.I
+        return -self.beta * self.state.S * self.state.I + self.epsilon * self.state.R
 
     def dI(self):
         return self.beta * self.state.S * self.state.I - self.gamma * self.state.I
 
     def dR(self):
-        return self.gamma * self.state.I
+        return self.gamma * self.state.I-self.epsilon * self.state.R
 
     def next(self):
         next_state = self.next_state()
@@ -143,9 +144,22 @@ def check_model_capasity(cls, my_model, priors,  T=24):
         plt.hlines(getattr(my_model, name), 0, niter-niter//3)
         plt.show()
         # px.histogram(my_pmmh.chain.theta[name][3000:], title=name).show()
+    new_model = plot_posteriors(T, cls, my_model, my_pmmh, niter, y)
+    #data = az.convert_to_inference_data(posterior_samples)
+    # az.plot_posterior(data, kind="timeseries", figsize=(10, 6))
+    # plt.show()
+
+    #x, new_y = new_model.simulate(T)
+    #plt.plot(new_y, '-')
+    # plt.plot(y, '-')
+    # plt.show()
+    # px.line(new_y).show()
+
+
+def plot_posteriors(T, cls, my_pmmh, niter, y):
     series = []
-    for i in range(niter//3, niter):
-        new_model = cls(**{name: my_pmmh.chain.theta[name][i] for name in my_model.default_params})
+    for i in range(niter // 3, niter):
+        new_model = cls(**{name: my_pmmh.chain.theta[name][i] for name in cls.default_params})
         time_series = new_model.simulate(T)[1]
         series.append(time_series)
     posterior_samples = np.array(series).reshape(len(series), -1)
@@ -154,13 +168,5 @@ def check_model_capasity(cls, my_model, priors,  T=24):
     plt.fill_between(np.arange(T), lines[0], lines[2], alpha=0.5)
     plt.plot(y, '-')
     plt.show()
-    #data = az.convert_to_inference_data(posterior_samples)
-    # az.plot_posterior(data, kind="timeseries", figsize=(10, 6))
-    # plt.show()
-
-    x, new_y = new_model.simulate(T)
-    plt.plot(new_y, '-')
-    plt.plot(y, '-')
-    plt.show()
-    # px.line(new_y).show()
+    return new_model
 
