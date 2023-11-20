@@ -1,5 +1,5 @@
 from datetime import date
-
+import arviz as az
 import ee
 import pandas as pd
 import numpy as np
@@ -89,6 +89,7 @@ def main():
         print(name)
         new_data_frame.to_csv(f'{name}.csv')
         analyze_data(new_data_frame, exog_names=['Rainfall'])
+
 
 
     # with open('point_dict.py', 'w') as f:

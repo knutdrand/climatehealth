@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import arviz as az
 import plotly.express as px
 import numpy as np
 import scipy.special
@@ -14,7 +15,8 @@ def make_ssm_class(weather_data, N=100000):
         default_params = {'gamma': 0.01, 'beta': 0.05, 'epsilon': 0.0, 'beta_0': 0.0, 'i0': 0.05}
 
         def PX0(self):
-            i0 = np.maximum(self.i0, 10/N)
+            print(self.seasons)
+            i0 = np.minimum(np.maximum(self.i0, 1/N), 0.4)
             #i0 = self.i0
             s0 = 1-2*i0
             r0 = i0
@@ -36,12 +38,15 @@ def make_ssm_class(weather_data, N=100000):
             return dists.Poisson(x.I * N)
 
     class SeasonalDengueModel(DengueSIRModel):
-        default_params = DengueSIRModel.default_params | {'seasons': np.ones(12)}
+        default_params = {'gamma': 0.01, 'beta': 0.05, 'epsilon': 0.0, 'beta_0': 0.0, 'i0': 0.05, 'seasons': np.ones(11)}
+        # default_params = DengueSIRModel.default_params | {'seasons': np.ones(11)}
 
         def eta(self, t):
-            return self.beta + self.beta_0 * weather_data[t] + self.seasons[t % 12]
+            month = t % 12
+            season = self.seasons[month] if month < 11 else 0
+            return self.beta + self.beta_0 * weather_data[t] + season
 
-    return DengueSIRModel
+    return SeasonalDengueModel
 
 
 def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
@@ -52,7 +57,10 @@ def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     y = df['DengueCases'].to_numpy()
     ratio0 = (y[0]+1) / (pop_size+1)
     # check_model_capasity(cls, cls(**{name: dist.rvs() for name, dist in priors.items()}), priors, T=len(y))
-    priors = {'gamma': dists.Beta(0.5, 10), 'beta': dists.Normal(0.5, 10), 'epsilon': dists.Beta(0.1, 1), 'beta_0': dists.Normal(0, 10), 'i0': dists.Beta(2*ratio0, 2*(1-ratio0))}
+    priors = {'gamma': dists.Beta(0.5, 10), 'beta': dists.Normal(0.5, 100), 'epsilon': dists.Beta(0.1, 1), 'beta_0': dists.Normal(0, 100), 'i0': dists.Beta(2*ratio0, 2*(1-ratio0)),
+              'seasons': dists.MvNormal(np.zeros(11), 1000)}
+
+
     prior = dists.StructDist(OrderedDict(priors))
     niter = 1000
     my_pmmh = mcmc.PMMH(ssm_cls=cls,
@@ -61,6 +69,15 @@ def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     print('Estimating parameters')
     my_pmmh.run()  # may take several se
     plot_posteriors(len(y), cls, my_pmmh, niter, y)
+    #plt.plot(my_pmmh.chain.theta['seasons'][-1], '-')
+
+    posterior = my_pmmh.chain.theta['seasons'][niter // 3:]
+    quantiles = np.quantile(posterior, [0.25, 0.5, 0.75], axis=0)
+    plt.plot(quantiles[1], '-')
+    plt.fill_between(np.arange(11), quantiles[0], quantiles[2], alpha=0.5)
+    plt.show()
+    #az.plot_posterior(az.convert_to_inference_data(posterior))# , round_to=2, credible_interval=0.95)
+    # plt.show()
     # theta = my_pmmh.chain.theta['theta'][-1]
     # sigma = my_pmmh.chain.theta['sigma'][-1]
     # beta_0 = my_pmmh.chain.theta['beta_0'][-1]
