@@ -1,0 +1,140 @@
+import dataclasses
+from collections import OrderedDict
+import plotly.express as px
+import numpy as np
+import scipy.stats
+from particles import state_space_models as ssm, mcmc, distributions as dists
+from dataclasses import dataclass
+from npstructures import npdataclass
+
+state = npdataclass
+
+parameters = dataclass
+statemodel = dataclass
+
+
+@state
+class SIRState:
+    S: float
+    I: float
+    R: float
+
+    @property
+    def shape(self):
+        return (len(self), )
+
+
+@statemodel
+class SIRModel:
+    state: SIRState
+    beta: float = 0.1
+    gamma: float = 0.05
+    dim=1
+
+    def dS(self):
+        return -self.beta * self.state.S * self.state.I
+
+    def dI(self):
+        return self.beta * self.state.S * self.state.I - self.gamma * self.state.I
+
+    def dR(self):
+        return self.gamma * self.state.I
+
+    def next(self):
+        next_state = self.next_state()
+        self.state = next_state
+
+    def next_state(self):
+        cls = self.state.__class__
+        return cls(
+            *(getattr(self.state, field.name) + getattr(self, f"d{field.name}")() for field in
+              dataclasses.fields(self.state)))
+
+    def rvs(self, size=1):
+        beta = self.beta.rvs(size)
+        return dataclasses.replace(self, beta=beta).next_state()
+
+    def logpdf(self, state):
+        dS = state.S-self.state.S
+        beta = -dS/(self.state.S*self.state.I)
+        return self.beta.logpdf(beta)
+
+def get_state_distribution(state_class: type):
+    class StateDist:
+        def __init__(self, alpha):
+            self._dist = scipy.stats.dirichlet(np.array(alpha))
+            self.dim = 1
+
+        def logpdf(self, state: state_class):
+            return self._dist.logpdf(np.array([getattr(field.name) for field in dataclasses.fields(state)]))
+
+        def rvs(self, size):
+            rvs = self._dist.rvs(size)
+            return state_class(*rvs.T)
+
+    StateDist.__name__ = f"{state_class.__name__}Dist"
+    StateDist.__qualname__ = f"{state_class.__qualname__}Dist"
+    return StateDist
+
+
+class StateDistribution:
+    def __class_getitem__(cls, item):
+        return get_state_distribution(item)
+
+
+class DeltaDistribution:
+    def __init__(self, value):
+        self.value = value
+        self.cls = value.__class__
+
+    def logpdf(self, value):
+        return value == self.value
+
+    def rvs(self, size):
+        if size == 1:
+            return self.value
+        return self.cls(*(np.full(size, getattr(self.value, field.name)) for field in dataclasses.fields(self.value)))
+        # return np.full(size, self.value)
+
+
+def make_ssm_class(statemodel, N):
+
+    class SIRSSM(ssm.StateSpaceModel):
+        default_params = {field.name: field.default for field in dataclasses.fields(statemodel) if field.name != 'state'}
+
+        def PX0(self):
+            return StateDistribution[SIRState](np.array([0.33, 0.33, 0.34]))
+
+        def PX(self, t, xp):
+            print(xp)
+            params_ = {name: getattr(self, name) for name in self.default_params}
+            return DeltaDistribution(statemodel(xp, **params_).next_state())
+
+        def PY(self, t, xp, x):
+            return dists.Poisson(x.I * N)
+
+    return SIRSSM
+
+
+def check_capasity(statemodel, N):
+    cls = make_ssm_class(statemodel, N)
+    priors = {'beta': dists.Beta(1, 10), 'gamma': dists.Beta(0.5, 10)}
+    check_model_capasity(cls, cls(beta=0.5, gamma=0.01), priors)
+
+
+def check_model_capasity(cls, my_model, priors,  T=24):
+    x, y = my_model.simulate(T)
+
+    prior = dists.StructDist(OrderedDict(priors))
+    my_pmmh = mcmc.PMMH(ssm_cls=cls,
+                        prior=prior, data=y, Nx=500,
+                        niter=1000)
+    my_pmmh.run();  # may take several se
+    for name in my_model.default_params:
+        # px.line(np.log(my_pmmh.chain.theta[name][100:]), title=name).show()
+        px.histogram(my_pmmh.chain.theta[name][100:], title=name).show()
+
+    new_model = cls(**{name: my_pmmh.chain.theta[name][-1] for name in my_model.default_params})
+    x, new_y = new_model.simulate(T)
+    px.line(new_y).show()
+

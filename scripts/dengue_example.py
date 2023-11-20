@@ -7,7 +7,7 @@ import numpy as np
 from climatehealth.ee_wrapper import EEWrapper
 from climatehealth.health_and_climate_dataset import extract_same_range_from_climate_data
 # from climatehealth.modelling.sarimax import analyze_data
-from climatehealth.modelling.particles_wrapper import analyze_data
+from climatehealth.modelling.dengue_sir_model import analyze_data
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']
 
@@ -60,10 +60,15 @@ def main():
 
     # point_dict = eval(open('point_dict.py').read())
     print(point_dict)
-    ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
-    ic = ee.ImageCollection(
-        'ECMWF/ERA5_LAND/MONTHLY_AGGR')  # .filterDate('2022-01-01', '2023-01-01').select('total_precipitation_sum')
+    import os
+    name = list(point_dict)[1]
+    if os.path.exists(f'{name}.csv'):
+        new_data_frame = pd.read_csv(f'{name}.csv')
+        analyze_data(new_data_frame, exog_names=['Rainfall'])
+        return
 
+    ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
+    ic = ee.ImageCollection('ECMWF/ERA5_LAND/MONTHLY_AGGR')  # .filterDate('2022-01-01', '2023-01-01').select('total_precipitation_sum')
     ee_dataset = EEWrapper(ic)
     range_data = extract_same_range_from_climate_data(data, ee_dataset)
     d = range_data.total_precipitation_sum
