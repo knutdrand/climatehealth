@@ -19,7 +19,6 @@ def get_city_name(location):
 def get_date(month, year):
     return date(year, lookup[month]+1, 1)
 
-
 def get_dataset(filename):
     filepath_or_buffer = '../example_data/10yeardengudata.csv'
     data = pd.read_csv(filename, sep='\t', header=1)
