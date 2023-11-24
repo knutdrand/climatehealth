@@ -5,14 +5,22 @@
 import typer
 
 
-def main():
+class Examples:
+    @classmethod
+    def laos(cls):
+
+
+analyses = {'laos_example': Examples.laos}
+
+def main(analysis_name: str):
     '''
     Simple function
 
     >>> main()
-
     '''
-    return
+    if analysis_name not in analyses:
+        raise ValueError(f'Unknown analysis {analysis_name}, available analyses are {list(analyses)}')
+    analyses[analysis_name]()
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ import numpy as np
 
 from climatehealth.ee_wrapper import EEWrapper
 from climatehealth.health_and_climate_dataset import extract_same_range_from_climate_data
-# from climatehealth.modelling.sarimax import analyze_data
 from climatehealth.modelling.dengue_sir_model import analyze_data
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']
