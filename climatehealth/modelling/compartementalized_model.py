@@ -9,6 +9,8 @@ from particles import state_space_models as ssm, mcmc, distributions as dists
 from dataclasses import dataclass
 from npstructures import npdataclass
 
+from climatehealth.modelling.plotting import plot_forecast
+
 state = npdataclass
 
 parameters = dataclass
@@ -59,7 +61,7 @@ class SIRModel:
 
     def logpdf(self, state):
         dS = state.S-self.state.S
-        beta = -dS/(self.state.S*self.state.I)
+        beta = (self.state.R*self.epsilon-dS)/(self.state.S*self.state.I)
         return self.beta.logpdf(beta)
 
 def get_state_distribution(state_class: type):
@@ -109,7 +111,6 @@ def make_ssm_class(statemodel, N):
             return StateDistribution[SIRState](np.array([0.33, 0.33, 0.34]))
 
         def PX(self, t, xp):
-            print(xp)
             params_ = {name: getattr(self, name) for name in self.default_params}
             return DeltaDistribution(statemodel(xp, **params_).next_state())
 
@@ -125,26 +126,26 @@ def check_capasity(statemodel, N):
     check_model_capasity(cls, cls(beta=0.5, gamma=0.01), priors)
 
 
-def check_model_capasity(cls, my_model, priors,  T=24):
+def check_model_capasity(cls, my_model, priors,  T=24, pop_size=100000):
     xs, y = my_model.simulate(T)
-    plt.plot([x.I*100000 for x in xs], '.')
+
+    plt.plot([x.I*pop_size for x in xs], '.')
     plt.plot(y, '-')
     plt.show()
     # px.plot(y).show()
     # px.line(x.I).show()
     prior = dists.StructDist(OrderedDict(priors))
-    niter = 1000
+    niter = 100
     my_pmmh = mcmc.PMMH(ssm_cls=cls,
-                        prior=prior, data=y, Nx=500,
+                        prior=prior, data=y, Nx=1000,
                         niter=niter)
     my_pmmh.run();  # may take several seconds
-    for name in my_model.default_params:
-        plt.plot(my_pmmh.chain.theta[name][niter//3:], '-')
-        plt.title(name)
-        plt.hlines(getattr(my_model, name), 0, niter-niter//3)
-        plt.show()
-        # px.histogram(my_pmmh.chain.theta[name][3000:], title=name).show()
-    new_model = plot_posteriors(T, cls, my_model, my_pmmh, niter, y)
+    plot_forecast(y, cls, my_pmmh.chain.theta)
+    # return
+    plot_trace(my_pmmh, my_model)
+    I = np.maximum(y[0], 1)/pop_size
+    start_state = SIRState(1-2*I, I, I)
+    plot_posteriors(T, cls, my_pmmh, niter, y, start_state)
     #data = az.convert_to_inference_data(posterior_samples)
     # az.plot_posterior(data, kind="timeseries", figsize=(10, 6))
     # plt.show()
@@ -156,11 +157,35 @@ def check_model_capasity(cls, my_model, priors,  T=24):
     # px.line(new_y).show()
 
 
-def plot_posteriors(T, cls, my_pmmh, niter, y):
+def plot_trace(my_pmmh, cls):
+    names = list(cls.default_params)
+    niter = len(my_pmmh.chain.theta[names[0]])
+    for name in names:
+        plt.plot(my_pmmh.chain.theta[name], '-')
+        plt.title(name)
+        if hasattr(cls, name):
+            plt.hlines(getattr(cls, name), 0, niter)
+        plt.show()
+
+
+def simulate_from_state(model, state, T, t0=0):
+    x = [state]
+    for t in range(t0, T-1):
+        law_x = model.PX(t, x[-1])
+        x.append(law_x.rvs(size=1))
+    y = model.simulate_given_x(x)
+    return x, y
+
+
+def plot_posteriors(T, cls, my_pmmh, niter, y, state=None):
     series = []
     for i in range(niter // 3, niter):
-        new_model = cls(**{name: my_pmmh.chain.theta[name][i] for name in cls.default_params})
-        time_series = new_model.simulate(T)[1]
+        params_ = {name: my_pmmh.chain.theta[name][i] for name in cls.default_params}
+        new_model: ssm.StateSpaceModel = cls(**params_)
+        if state is not None:
+            time_series = simulate_from_state(new_model, state, T)[1]
+        else:
+            time_series = new_model.simulate(T)[1]
         series.append(time_series)
     posterior_samples = np.array(series).reshape(len(series), -1)
     lines = np.quantile(posterior_samples, [0.25, 0.5, 0.75], axis=0)
