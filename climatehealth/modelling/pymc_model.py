@@ -3,11 +3,9 @@ import numpy as np
 np.bool = bool
 import matplotlib.pyplot as plt
 import pymc as pm
-import arviz as az
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import arviz as az
 
 
 # Load your dataset
@@ -67,8 +65,8 @@ def new_pymc_sarima(df):
     ppc = pm.sample_posterior_predictive(trace, samples=1000, model=sarimax_model)
 
     # Plot the posterior predictive checks
-    az.plot_ppc(az.from_pymc5(posterior_predictive=ppc, model=sarimax_model), mean=False)
-    plt.show()
+    # az.plot_ppc(az.from_pymc5(posterior_predictive=ppc, model=sarimax_model), mean=False)
+    # plt.show()
     return ppc
 
 
@@ -116,7 +114,7 @@ def pymc_sarima(df):
     # Posterior predictive checks
     ppc = pm.sample_posterior_predictive(trace, samples=1000, model=sarimax_model)
     # Plot the posterior predictive checks
-    az.plot_ppc(az.from_pymc3(posterior_predictive=ppc, model=sarimax_model), mean=False)
+    # az.plot_ppc(az.from_pymc3(posterior_predictive=ppc, model=sarimax_model), mean=False)
     plt.show()
     return trace
 

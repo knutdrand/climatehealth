@@ -16,7 +16,6 @@ def simulate_from_state(model, state, T, t0=0):
 def plot_forecast(y, model_cls, theta):
     param_names = list(model_cls.default_params)
     n_iter = len(theta[param_names[0]])
-    # mcmc_i = t
     ys = []
     T = len(y)
     cutoff = T*2//3
@@ -29,7 +28,7 @@ def plot_forecast(y, model_cls, theta):
         i = np.random.choice(np.arange(len(alg.W)),
                              p=alg.W)
         state = alg.X[i]
-        print(state)
+        print(state, params)
         _, new_y = simulate_from_state(model, state, len(y), t0=cutoff)
         ys.append(new_y)
 

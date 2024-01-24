@@ -9,7 +9,7 @@ class Examples:
     @classmethod
     def laos(cls, base_folder: str):
         from .examples.laos_example import main
-        main(base_folder + '/example_data/10yeardengudata.csv')
+        main(base_folder + '/10yeardengudata.csv')
 
 
 analyses = {'laos_example': Examples.laos}

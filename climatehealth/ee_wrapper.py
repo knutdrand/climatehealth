@@ -48,3 +48,11 @@ class EEWrapper(SpatioTemporalIndexable):
         assert self._name is not None
         features = self._ee_object.getInfo()['features']
         return np.array([f['properties'][self._name] for f in features])
+
+
+def get_image_collection(period='MONTHLY', dataset='ERA5'):
+    dataset_lookup = {'ERA5': 'ECMWF/ERA5_LAND'}
+    name = f'{dataset_lookup[dataset]}/{period}_AGGR'
+    ic = ee.ImageCollection(
+        name)  # .filterDate('2022-01-01', '2023-01-01').select('total_precipitation_sum')
+    return ic

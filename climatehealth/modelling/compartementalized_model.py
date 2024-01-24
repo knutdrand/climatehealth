@@ -1,8 +1,6 @@
 import dataclasses
 from collections import OrderedDict
-import arviz as az
 import matplotlib.pyplot as plt
-import plotly.express as px
 import numpy as np
 import scipy.stats
 from particles import state_space_models as ssm, mcmc, distributions as dists
@@ -27,6 +25,10 @@ class SIRState:
     def shape(self):
         return (len(self), )
 
+@state
+class SIRNState(SIRState):
+    N: float
+
 
 @statemodel
 class SIRModel:
@@ -34,7 +36,10 @@ class SIRModel:
     beta: float = 0.1
     gamma: float = 0.05
     epsilon: float = 0.00
-    dim=1
+
+    @property
+    def dim(self):
+        return 1
 
     def dS(self):
         return -self.beta * self.state.S * self.state.I + self.epsilon * self.state.R
@@ -63,6 +68,31 @@ class SIRModel:
         dS = state.S-self.state.S
         beta = (self.state.R*self.epsilon-dS)/(self.state.S*self.state.I)
         return self.beta.logpdf(beta)
+
+
+@statemodel
+class SIRNModel(SIRModel):
+    base_rate: float = 0.01
+
+    def dS(self):
+        return -self.beta * self.state.S * (self.state.I+self.state.N+self.base_rate) + self.epsilon * self.state.R
+
+    def dN(self):
+        return self.beta * self.state.S * (self.state.I+self.state.N+self.base_rate) - self.state.N
+
+    def dI(self):
+        return self.state.N - self.gamma * (self.state.I+self.state.N)
+
+    def dR(self):
+        return self.gamma * (self.state.I+self.state.N)-self.epsilon * self.state.R
+
+    def logpdf(self, state):
+        dN = state.N
+        beta = dN/(self.state.S*(self.state.I+self.state.N+self.base_rate))
+        #dS = state.S-self.state.S
+        # beta = (self.state.R*self.epsilon-dS)/(self.state.S*self.state.I)
+        return self.beta.logpdf(beta)
+
 
 def get_state_distribution(state_class: type):
     class StateDist:

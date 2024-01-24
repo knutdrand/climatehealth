@@ -1,17 +1,16 @@
 from collections import OrderedDict
 from numbers import Number
 
-import arviz as az
-import plotly.express as px
 import numpy as np
 import scipy.special
 from matplotlib import pyplot as plt
 from particles import state_space_models as ssm, mcmc, distributions as dists
 from .compartementalized_model import SIRState, SIRModel, make_ssm_class, check_capasity, StateDistribution, \
-    check_model_capasity, plot_posteriors, plot_trace
+    check_model_capasity, plot_posteriors, plot_trace, SIRNState, SIRNModel
 from .plotting import plot_forecast
 
 logit = scipy.special.logit
+
 
 class SimpleNormal:
     def __init__(self, mu, sigma=1):
@@ -40,7 +39,7 @@ def make_ssm_class(weather_data, N=100000):
             i0 = np.minimum(np.maximum(self.i0, 1/N), 0.4)
             s0 = 1-2*i0
             r0 = i0
-            return StateDistribution[SIRState](1000*np.array([s0, i0, r0]))
+            return StateDistribution[SIRNState](1000*np.array([s0, i0/2, r0, i0/2]))
 
         def PX(self, t, xp):
             beta = scipy.special.expit(self.eta(t))
@@ -48,14 +47,14 @@ def make_ssm_class(weather_data, N=100000):
             k = 2
             a, b = beta*k, (1-beta)*k
             model = dists.Beta(a=a, b=b)
-            return SIRModel(xp, beta=model, gamma=self.gamma, epsilon=self.epsilon)
+            return SIRNModel(xp, beta=model, gamma=self.gamma, epsilon=self.epsilon, base_rate=self.base_rate)
             # return dists.Normal(loc=xp + self.theta * weather_data[t] + self.beta_0, scale=self.sigma ** 2)
 
         def eta(self, t):
             return self.beta + self.beta_0 * weather_data[t]
 
         def PY(self, t, xp, x):
-            return dists.Poisson(x.I * N)
+            return dists.Poisson(x.N * N)
 
 
     class SeasonalDengueModel(DengueSIRModel):
@@ -74,10 +73,11 @@ def make_ssm_class(weather_data, N=100000):
             return self.beta_0 + self.beta * weather_data[t] + season
 
     class LogParameterizedDengueModel(DengueSIRModel):
-        default_params = {'logit_gamma':0, 'beta':0, 'logit_epsilon':0, 'beta_0':0, 'logit_i0':0, 'seasons':np.zeros(11)}
+        default_params = {'logit_gamma':0, 'beta':0, 'logit_epsilon':0, 'logit_baserate':0, 'beta_0':0, 'logit_i0':0, 'seasons':np.zeros(11)}
         priors = {'logit_gamma': dists.Normal(),
                   'beta': dists.Normal(),
                   'logit_epsilon': dists.Normal(),
+                  'logit_baserate': dists.Normal(-11.5, 3), # 'logit_i0': dists.Normal(),
                   'beta_0': dists.Normal(),
                   'logit_i0': dists.Normal(),
                   'seasons': SimpleNormal(np.zeros(11), 1)}
@@ -87,6 +87,7 @@ def make_ssm_class(weather_data, N=100000):
             self.gamma = scipy.special.expit(kwargs['logit_gamma'])
             self.epsilon = scipy.special.expit(kwargs['logit_epsilon'])
             self.i0 = scipy.special.expit(kwargs['logit_i0'])
+            self.base_rate = scipy.special.expit(kwargs['logit_baserate'])
 
     class PureSeasonalDengueModel(DengueSIRModel):
         default_params = {'logit_i0': 0.05, 'seasons': np.ones(12),
@@ -113,8 +114,9 @@ def make_ssm_class(weather_data, N=100000):
             # season = seasons[month] if month < 11 else 0
             # return season
 
-    return PureSeasonalDengueModel
+    #return PureSeasonalDengueModel
     return LogParameterizedDengueModel
+
 
 def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     df = df.iloc[30:]
@@ -146,9 +148,10 @@ def analyze_data(df, exog_names = ['Rainfall', 'Temperature']):
     # return
 
     prior = dists.StructDist(OrderedDict(priors))
-    niter = 200
+    niter = 1000
     my_pmmh = mcmc.PMMH(ssm_cls=cls,
-                        prior=prior, data=y, Nx=600,
+                        prior=prior,
+                        data=y, Nx=1000,
                         niter=niter)
 
 
