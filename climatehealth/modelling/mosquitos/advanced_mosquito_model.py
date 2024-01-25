@@ -1,8 +1,21 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from jax.scipy.special import logit, expit
 import jax.numpy as jnp
 mosquito_state_names = ['E', 'L', 'P', 'A', 'L', 'I']
 human_state_names = ['S', 'E', 'I', 'R']
+
+
+def get_days_per_month(year, month):
+    if month in [1, 3, 5, 7, 8, 10, 12]:
+        return 31
+    elif month in [4, 6, 9, 11]:
+        return 30
+    elif year % 4 == 0:
+        return 29
+    else:
+        return 28
+
 
 class FixedMosquitoModel:
     T = 2000
@@ -61,17 +74,28 @@ class FixedMosquitoModel:
             observed.append(fullstate)
         return np.array(observed)
 
+    def logpd
 
 
 if __name__ == '__main__':
-    T = 1000
+    T = 8000
     model = FixedMosquitoModel()
     t = np.load(
         '/home/knut/Sources/climatehealth/tests/NCLE: 7. Dengue cases (any) 01 Vientiane Capital_temperature_daily.npy') - 273.15
-    model.temperature = t[:2000]
+    cases = np.load('/home/knut/Sources/climatehealth/tests/Vientianne_cases.npy')
+    n_months = cases.size
+    year = np.arange(n_months)//12+2013
+    month = np.arange(n_months) % 12 + 1
+    days_per_month = [get_days_per_month(y, m)
+                      for y,m  in zip(year, month)]
+    offset = np.insert(np.cumsum(days_per_month), 0, 0)[:-1]
+    mask = offset< T
+    offset = offset[mask]
+    cases = cases[mask]
+    model.temperature = t[:T]
     model.T = len(model.temperature)
     states = model.sample()
-    import matplotlib.pyplot as plt
+
     for i in range(4):
         plt.plot(states[:, i], label=human_state_names[i])
     plt.legend()
@@ -81,9 +105,11 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
     adult_mosquitos = states[:, -3:].sum(axis=-1)
-    plt.plot(states[:, 1] + states[:, 2], label='Sick')
+    sick = states[:, 1] + states[:, 2]
+    plt.plot(sick/np.max(sick), label='Sick')
     plt.plot(adult_mosquitos/np.max(adult_mosquitos), label='Adult Mosquitos')
     plt.plot(model.temperature/np.max(model.temperature), label='Temperature')
+    plt.plot(offset, cases/np.max(cases), label='Cases')
     plt.legend()
     plt.show()
     plt.plot(adult_mosquitos, label='Adult Mosquitos')
