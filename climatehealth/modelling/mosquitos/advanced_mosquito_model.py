@@ -3,6 +3,7 @@ from jax.scipy.special import logit, expit
 import jax.numpy as jnp
 mosquito_state_names = ['E', 'L', 'P', 'A', 'L', 'I']
 human_state_names = ['S', 'E', 'I', 'R']
+
 class FixedMosquitoModel:
     T = 2000
     n_infected_mosquitos = (np.arange(T) % 365) * 1000 + 1000
@@ -32,7 +33,7 @@ class FixedMosquitoModel:
     def d_mosquito(state, death_rate, maturation_rate, beta, alpha, egglaying_rate):
         deaths = -death_rate * state
         maturation = (state + deaths) * maturation_rate
-        carry_deaths = expit(beta + alpha * state[..., 1])
+        carry_deaths = expit(beta + alpha * state[..., 1])*0.7
         d = jnp.array([deaths[..., 0] - maturation[..., 0] + egglaying_rate *state[..., 3:].sum(),
                        deaths[..., 1] + maturation[..., 0] - carry_deaths * (state[..., 1] + deaths[..., 1])-maturation[..., 1]*(1-carry_deaths),
                        deaths[..., 2] - maturation[..., 2] + maturation[..., 1]*(1-carry_deaths),
@@ -48,7 +49,9 @@ class FixedMosquitoModel:
         for t in range(self.T):
             beta = expit(self.alpha + self.beta * mosquito_state[-1])
             maturation_rate = self.maturation.copy()
-            maturation_rate[0] = expit(logit(maturation_rate[0])+self.t_beta*self.temperature[t])/3
+            temp_dependent = expit(logit(maturation_rate[0]) + self.t_beta * self.temperature[t])
+            maturation_rate[0] = temp_dependent / 3
+            maturation_rate[1] = temp_dependent / 5
             maturation_rate[3] = expit(logit(maturation_rate[3])+self.h_beta*state[-2])
             d_human = self.d_human(state, [beta] + self.seir_params)
             d_mosquito = self.d_mosquito(mosquito_state, self.death_rate, maturation_rate, self.m_beta, self.m_alpha, 0.7)
@@ -63,7 +66,9 @@ class FixedMosquitoModel:
 if __name__ == '__main__':
     T = 1000
     model = FixedMosquitoModel()
-    model.temperature = np.load('/home/knut/Sources/climatehealth/tests/NCLE: 7. Dengue cases (any) 01 Vientiane Capital_temperature_daily.npy')-273.15
+    t = np.load(
+        '/home/knut/Sources/climatehealth/tests/NCLE: 7. Dengue cases (any) 01 Vientiane Capital_temperature_daily.npy') - 273.15
+    model.temperature = t[:2000]
     model.T = len(model.temperature)
     states = model.sample()
     import matplotlib.pyplot as plt
@@ -75,9 +80,12 @@ if __name__ == '__main__':
         plt.plot(states[:, i], label=mosquito_state_names[i-4])
     plt.legend()
     plt.show()
+    adult_mosquitos = states[:, -3:].sum(axis=-1)
     plt.plot(states[:, 1] + states[:, 2], label='Sick')
+    plt.plot(adult_mosquitos/np.max(adult_mosquitos), label='Adult Mosquitos')
+    plt.plot(model.temperature/np.max(model.temperature), label='Temperature')
     plt.legend()
     plt.show()
-    plt.plot(states[:, -3:].sum(axis=-1), label='Adult Mosquitos')
+    plt.plot(adult_mosquitos, label='Adult Mosquitos')
     plt.legend()
     plt.show()
